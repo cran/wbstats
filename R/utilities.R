@@ -5,7 +5,7 @@
 #' @return  a list with a base url and a url section for formatting the json return
 wburls <- function() {
 
-  base_url <- "http://api.worldbank.org/"
+  base_url <- "http://api.worldbank.org/v2/"
   utils_url <- "per_page=20000&format=json"
 
   url_list <- list(base_url = base_url, utils_url = utils_url)
@@ -65,6 +65,9 @@ wbdate2POSIXct <- function(df, date_col) {
 
       return(df)
     }
+
+    # lastUpdated field
+    df$lastUpdated <- lubridate::as_date(df$lastUpdated)
 
     # add new columns
     df$date_ct <- as.Date.POSIXct(NA)
@@ -134,16 +137,40 @@ wbdate2POSIXct <- function(df, date_col) {
 #'
 #' To be used inside of wbget()
 #'
-#' @param url A charcter string. A formatted url string
-#' @return A list with page information and the data itself
-wbget.raw <- function(url) {
+#' @param url_string A character string. A formatted url string
+#' @param indicator A character string. indicatorID for request. Used for error returns
+#' @return json contents of page information
+call_api <- function(url_string, indicator) {
 
-  return_get <- httr::GET(url)
-  return_json <- httr::content(return_get, as = "text")
-  return_list <- jsonlite::fromJSON(return_json,  flatten = TRUE)
+  # move this to data-raw eventually
+  ua <- httr::user_agent("https://github.com/GIST-ORNL/wbstats")
 
-  return_list
+  # add api_token here if/when that is supported
+
+  get_return <- httr::GET(url_string, ua)
+
+  if (httr::http_error(get_return)) {
+
+    error_status<- httr::http_status(get_return)
+
+    stop(sprintf("World Bank API request failed for indicator %s\nmessage: %s\ncategory: %s\nreason: %s \nurl: %s",
+                 indicator,
+                 error_status$message,
+                 error_status$category,
+                 error_status$reason,
+                 url_string),
+         call. = FALSE)
+  }
+
+  if (httr::http_type(get_return) != "application/json") {
+    stop("API call executed successfully, but did not return expected json format", call. = FALSE)
+  }
+
+  return_json <- httr::content(get_return, as = "text")
+
+  return_json
 }
+
 
 
 #' Call the World Bank API and return a formatted data frame
@@ -153,16 +180,35 @@ wbget.raw <- function(url) {
 #' then if generates a list of data frames from each page and
 #' then combines the results with do.call("rbind", mylist)
 #'
-#' @param url A charcter string. A formatted url string without page information
+#' @param url_string A character string. A formatted url string
+#' @param indicator A character string. indicatorID for request. Used for error returns
 #' @return A data frame
-wbget <- function(url) {
+wbget <- function(url_string, indicator) {
 
-  return_list <- wbget.raw(url = url)
+  return_json <- call_api(url_string = url_string, indicator = indicator)
 
-  # the first element of return list is page information
-  # if there is more than one page then get the rest
+  return_list <- jsonlite::fromJSON(return_json, simplifyVector = FALSE)
+
+  if ("message" %in% names(return_list[[1]])) {
+
+    message_list <- return_list[[1]]$message[[1]]
+
+    stop(sprintf("World Bank API request failed for indicator %s The following message was returned from the server\nid: %s\nkey: %s\nvalue: %s",
+                 indicator,
+                 message_list$id,
+                 message_list$key,
+                 message_list$value),
+         call. = FALSE)
+
+  }
 
   n_pages <- return_list[[1]]$pages
+
+  if (n_pages == 0) return(NA) # a blank data frame will be returned to the user
+
+  return_list <- jsonlite::fromJSON(return_json,  flatten = TRUE)
+
+  lastUpdated <- return_list[[1]]$lastupdated
 
   if (n_pages > 1) {
 
@@ -174,9 +220,12 @@ wbget <- function(url) {
 
       } else {
 
-        page_url <- paste0(url, "&page=", page)
-        page_return <- wbget.raw(page_url)
-        page_df <- page_return[[2]]
+        page_url <- paste0(url_string, "&page=", page)
+
+        # page_return <- wbget.raw(page_url)
+        page_return_json <- call_api(url_string = page_url)
+        page_return_list <- jsonlite::fromJSON(page_return_json,  flatten = TRUE)
+        page_df <- page_return_list[[2]]
 
       }
     }
@@ -190,6 +239,7 @@ wbget <- function(url) {
 
   }
 
+  return_df$lastUpdated <- lastUpdated
   return_df
 
 }
@@ -199,15 +249,45 @@ wbget <- function(url) {
 #'
 #' Helper function for the data catalog call
 #'
-#' @param url A charcter string. A formatted url string
+#' @param url_string A charcter string. A formatted url string
 #' @note This call is seperate because the data catalog is actaully a different
 #'  API and therefore has a different return structure.
-#' @return A data frame
-wbget.dc <- function(url) {
+#' @return A list of data frames
+wbget_dc <- function(url_string) {
 
-  return_get <- httr::GET(url)
-  return_json <- httr::content(return_get, as = "text")
+  return_json <- call_api(url_string = url_string, indicator = "Data Catalog")
   return_list <- jsonlite::fromJSON(return_json,  flatten = TRUE)
 
-  return_list
+  n_pages <- return_list$pages
+
+  if (n_pages > 1) {
+
+    page_list <- lapply(1:n_pages, FUN = function(page) {
+
+      if (page == 1) {
+
+        return_list$datacatalog$metatype
+
+      } else {
+
+        page_url <- paste0(url_string, "&page=", page)
+
+        page_return_json <- call_api(url_string = page_url)
+        page_return_list <- jsonlite::fromJSON(page_return_json,  flatten = TRUE)
+        page_metadata_list <- page_return_list$datacatalog$metatype
+
+      }
+    }
+    ) # end lapply
+
+    page_list <- unlist(x = page_list, recursive = FALSE)
+
+  } else { # only one page
+
+    page_list <- return_list$datacatalog$metatype
+
+  }
+
+  page_list
+
 }

@@ -4,7 +4,7 @@
 #'
 #' @param country Character vector of country or region codes. Default value is special code of \code{all}.
 #'  Other permissible values are codes in the following fields from the \code{\link{wb_cachelist}} \code{country}
-#'  data frame. \code{iso3c}, \code{iso2c}, \code{regionID}, \code{adminID}, \code{incomeID}, and \code{lendingID}.
+#'  data frame. \code{iso3c}, \code{iso2c}, \code{regionID}, \code{adminID}, and \code{incomeID}.
 #'  Additional special values include \code{aggregates}, which returns only aggregates, and \code{countries_only},
 #'  which returns all countries without aggregates.
 #' @param indicator Character vector of indicator codes. These codes correspond to the \code{indicatorID} column
@@ -20,7 +20,11 @@
 #' @param mrv Numeric. The number of Most Recent Values to return. A replacement of \code{startdate} and \code{enddate},
 #'  this number represents the number of observations you which to return starting from the most recent date of collection.
 #'  Useful in conjuction with \code{freq}
-#' @param gapfill Logical. Works with \code{mrv}. if \code{TRUE} fills values, if not available, by back tracking to the
+#' @param return_wide Logical. If \code{TRUE} data is returned in a wide format instead of long, with a column named for each
+#' \code{indicatorID}. To necessitate this transformation, the \code{indicator} column, that provides the human readable description
+#' is dropped. This field is available through from the \code{indicator} data frame of \code{\link{wbcache}} or \code{\link{wb_cachelist}},
+#' or the result of \code{\link{wbindicators}}. Default is \code{FALSE}
+#' @param gapfill Logical. Works with \code{mrv}. If \code{TRUE} fills values, if not available, by back tracking to the
 #'  next available period (max number of periods back tracked will be limited by \code{mrv} number)
 #' @param freq Character String. For fetching quarterly ("Q"), monthly("M") or yearly ("Y") values.
 #'  Currently works along with \code{mrv}. Useful for querying high frequency data.
@@ -34,8 +38,14 @@
 #'  \code{date_ct} converts the default date into a \code{\link[base]{POSIXct}}. \code{granularity}
 #'  denotes the time resolution that the date represents.  Useful for subannual data and mixing subannual
 #'  with annual data. If \code{FALSE}, these fields are not added.
-#' @param includedec if \code{TRUE}, the column \code{decimal} is not removed from the return. if \code{FALSE},
+#' @param include_dec if \code{TRUE}, the column \code{decimal} is not removed from the return. if \code{FALSE},
 #'  this column is removed
+#' @param include_unit if \code{TRUE}, the column \code{unit} is not removed from the return. if \code{FALSE},
+#'  this column is removed
+#' @param include_obsStatus if \code{TRUE}, the column \code{obsStatus} is not removed from the return. if \code{FALSE},
+#'  this column is removed
+#' @param include_lastUpdated if \code{TRUE}, the column \code{lastUpdated} is not removed from the return. if \code{FALSE},
+#'  this column is removed. If \code{TRUE} and \code{POSIXct = TRUE} then column will be of class \code{\link[base]{Date}}
 #' @return Data frame with all available requested data.
 #'
 #' @note Not all data returns have support for langauges other than english. If the specific return
@@ -54,17 +64,24 @@
 #'  \code{2016-01-01}. If this package is not available and the \code{POSIXct} parameter is set to \code{TRUE},
 #'  the parameter is ignored and a \code{warning} is produced.
 #'
-#'  The \code{includedec} is defaulted to \code{FALSE} because as of writing, all returns have a value of \code{0}
-#'  for the \code{decimal} column. This column might be used in the future by the API, therefore the option to include
-#'  the column is available.
+#'  The \code{include_dec}, \code{include_unit}, and \code{include_obsStatus} are defaulted to \code{FALSE}
+#'  because as of writing, all returns have a value of \code{0}, \code{NA}, and \code{NA}, respectively.
+#'  These columns might be used in the future by the API, therefore the option to include the column is available.
+#'
+#'  The \code{include_lastUpdated} is defaulted to \code{FALSE} as well to limit the
 #'
 #'  If there is no data available that matches the request parameters, an empty data frame is returned along with a
 #'  \code{warning}. This design is for easy aggregation of multiple calls.
 #'
-#'  @examples
-#'
+#' @examples
 #'  # GDP at market prices (current US$) for all available countries and regions
-#'  wb(indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)
+#'  \donttest{wb(indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)}
+#'
+#'  # GDP and Population in long format for the most recent 20 observations
+#'  \donttest{wb(indicator = c("SP.POP.TOTL","NY.GDP.MKTP.CD"), mrv = 20)}
+#'
+#'  # GDP and Population in wide format for the most recent 20 observations
+#'  \donttest{wb(indicator = c("SP.POP.TOTL","NY.GDP.MKTP.CD"), mrv = 20, return_wide = TRUE)}
 #'
 #'  # query using regionID or incomeID
 #'  # High Income Countries and Sub-Saharan Africa (all income levels)
@@ -77,10 +94,10 @@
 #'  wb(country = c("IN"), indicator = 'EG.ELC.ACCS.ZS', mrv = 35)
 #'
 #'  # GDP at market prices (current US$) for only available countries
-#'  wb(country = "countries_only", indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)
+#'  \donttest{wb(country = "countries_only", indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)}
 #'
 #'  # GDP at market prices (current US$) for only available aggregate regions
-#'  wb(country = "aggregates", indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)
+#'  \donttest{wb(country = "aggregates", indicator = "NY.GDP.MKTP.CD", startdate = 2000, enddate = 2016)}
 #'
 #'  # if you want to "fill-in" the values in between actual observations use gapfill = TRUE
 #'  # this highlights a very important difference.
@@ -99,8 +116,9 @@
 #'  # should return the 12 most recent months of data
 #'  wb(country = c("CHN", "IND"), indicator = "DPANUSSPF", mrv = 12, freq = "M")
 #' @export
-wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, freq, cache,
-               lang = c("en", "es", "fr", "ar", "zh"), removeNA = TRUE, POSIXct = FALSE, includedec = FALSE) {
+wb <- function(country = "all", indicator, startdate, enddate, mrv, return_wide = FALSE, gapfill,
+               freq, cache, lang = c("en", "es", "fr", "ar", "zh"), removeNA = TRUE, POSIXct = FALSE,
+               include_dec = FALSE, include_unit = FALSE, include_obsStatus = FALSE, include_lastUpdated = FALSE) {
 
   lang <- match.arg(lang)
 
@@ -159,7 +177,7 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
   bad_ind <- indicator[!good_ind_index]
 
   if (length(bad_ind) > 0) warning(paste0("The following indicator values are not valid and are being excluded from the request: ",
-                                         paste(bad_ind, collapse = ",")))
+                                          paste(bad_ind, collapse = ",")))
 
 
   ## check date and other parameters. add to list if not missing ----------
@@ -171,13 +189,13 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
 
   if (!(missing(startdate) & missing(enddate))) {
 
-  #
-  # something here to check the inputs but i'll come back to this
-  #
+    #
+    # something here to check the inputs but i'll come back to this
+    #
 
-   date_url <- paste0("date=", startdate, ":", enddate)
+    date_url <- paste0("date=", startdate, ":", enddate)
 
-   param_url_list[length(param_url_list) + 1] <- date_url
+    param_url_list[length(param_url_list) + 1] <- date_url
 
   }
 
@@ -215,7 +233,6 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
 
   }
 
-
   # combine the url parameters ----------
   param_url_list[length(param_url_list) + 1] <- utils_url
   param_url <- paste0(param_url_list, collapse = "&")
@@ -226,10 +243,9 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
 
     full_url <- paste0(base_url, lang, "/countries/", country_url, "/indicators/", i, "?", param_url)
 
-    return_df <- try(wbget(full_url), silent = TRUE)
-    }
+    return_df <- try(wbget(full_url, indicator = i), silent = FALSE)
+  }
   )
-
 
   # remove the errored out indicator returns ----------
   df_index <- sapply(df_list, is.data.frame)
@@ -243,7 +259,10 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
                 "indicator.id" = "indicatorID",
                 "indicator.value" = "indicator",
                 "country.id" = "iso2c",
-                "country.value" = "country")
+                "country.value" = "country",
+                "countryiso3code" = "iso3c",
+                "obs_status" = "obsStatus",
+                "unit" = "unit")
 
   if (length(out_list) == 0) {
 
@@ -261,23 +280,69 @@ wb <- function(country = "all", indicator, startdate, enddate, mrv, gapfill, fre
   # a little clean up ----------
   out_df$value <- as.numeric(out_df$value)
 
-  if (!includedec) out_df$decimal <- NULL
-
   out_df <- wbformatcols(out_df, out_cols)
+
+  if (POSIXct) out_df <- wbdate2POSIXct(out_df, "date")
+  if (!include_dec) out_df$decimal <- NULL
+  if (!include_unit) out_df$unit <- NULL
+  if (!include_obsStatus) out_df$obsStatus <- NULL
+  if (!include_lastUpdated) out_df$lastUpdated <- NULL
 
   if (removeNA) out_df <- out_df[!is.na(out_df$value), ]
 
-  if (POSIXct) out_df <- wbdate2POSIXct(out_df, "date")
+  # Namibia bug ----------
+  # if only Namibia is requested it's iso2c code "NA" is automatically converted
+  # to logical NA by jsonlite::fromJSON and there currently does not seem to be an
+  # option to handle that within that function so look if thats the case and fix it
+  namibia_na <- which(is.na(out_df$iso2c) & out_df$country == "Namibia")
+
+  if (!length(namibia_na) == 0) out_df[namibia_na, "iso2c"] <- "NA"
+
+  # handle iso3c in iso2c bug ----------
+  iso3c_in_iso2c_cols <- which(out_df$iso2c %in% cache$countries$iso3c)
+
+  if (!length(iso3c_in_iso2c_cols) == 0) {
+
+    iso3c_in_iso2c <- unique(out_df[iso3c_in_iso2c_cols, "iso2c"])
+    iso23_df <- cache$countries[cache$countries$iso3c %in% iso3c_in_iso2c, c("iso2c","iso3c")]
+
+    for (i in 1:nrow(iso23_df)) {
+
+      replace_rows <- which(out_df$iso2c == iso23_df[i, "iso3c"])
+
+      out_df[replace_rows, "iso3c"] <- iso23_df[i,"iso3c"]
+      out_df[replace_rows, "iso2c"] <- iso23_df[i,"iso2c"]
+    }
+
+  }
+
+  # handle blank iso3c ----------
+  na_iso3c <- which(is.na(out_df$iso3c) & !(is.na(out_df$iso2c)))
+
+  if (!length(na_iso3c) == 0) {
+
+    iso2c <- unique(out_df[na_iso3c, "iso2c"])
+    iso23_df <- cache$countries[cache$countries$iso2c %in% iso2c, c("iso2c", "iso3c")]
+
+    for (i in 1:nrow(iso23_df)) {
+
+      replace_rows <- which(out_df$iso2c == iso23_df[i, "iso2c"])
+      out_df[replace_rows, "iso3c"] <- iso23_df[i, "iso3c"]
+
+    }
+
+  }
+
+  # check for wide return ----------
+  if (return_wide) {
+
+    out_df$indicator <- NULL
+    out_df <- tidyr::spread_(data = out_df,
+                             key_col = "indicatorID",
+                             value_col = "value")
+
+  }
+
 
   out_df
 }
-
-
-
-
-
-
-
-
-
-

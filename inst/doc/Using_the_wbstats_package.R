@@ -67,10 +67,18 @@ head(pop_data)
 ## ------------------------------------------------------------------------
 library(wbstats)
 
-pop_gdp_data <- wb(country = c("US", "NO"), indicator = c("SP.POP.TOTL", "NY.GDP.MKTP.CD"),
-               startdate = 1971, enddate = 1971)
+pop_gdp_long <- wb(country = c("US", "NO"), indicator = c("SP.POP.TOTL", "NY.GDP.MKTP.CD"),
+                   startdate = 1971, enddate = 1971)
 
-head(pop_gdp_data)
+head(pop_gdp_long)
+
+## ------------------------------------------------------------------------
+library(wbstats)
+
+pop_gdp_wide <- wb(country = c("US", "NO"), indicator = c("SP.POP.TOTL", "NY.GDP.MKTP.CD"),
+                   startdate = 1971, enddate = 1971, return_wide = TRUE)
+
+head(pop_gdp_wide)
 
 ## ------------------------------------------------------------------------
 library(wbstats)
@@ -100,7 +108,7 @@ oil_data <- wb(indicator = "CRUDE_BRENT", mrv = 10, freq = "M", POSIXct = TRUE)
 
 head(oil_data)
 
-## ---- fig.height = 4, fig.width = 7.5------------------------------------
+## ----vig-ex-posixct-1, fig.height = 4, fig.width = 7.5, fig.path = "figures/"----
 library(wbstats)
 library(ggplot2)
 
@@ -110,7 +118,7 @@ oil_data <- wb(indicator = c("CRUDE_DUBAI", "CRUDE_BRENT", "CRUDE_WTI", "CRUDE_P
 ggplot(oil_data, aes(x = date_ct, y = value, colour = indicator)) + geom_line(size = 1) +
   labs(title = "Crude Oil Price Comparisons", x = "Date", y = "US Dollars")
 
-## ---- fig.height = 4, fig.width = 7.5------------------------------------
+## ----vig-ex-posixct-2, fig.height = 4, fig.width = 7.5, fig.path = "figures/"----
 library(wbstats)
 library(ggplot2)
 
@@ -126,21 +134,11 @@ ggplot(metal_data, aes(x = date_ct, y = value, colour = indicator)) + geom_line(
 ## ------------------------------------------------------------------------
 library(wbstats)
 
-pop_data <- wb(country = "US", indicator = "SP.POP.TOTL", 
-               startdate = 1800, enddate = 1805, POSIXct = TRUE)
+per_data_1 <- wb(country = "all", indicator = 'per_lm_ac.cov_pop_tot', mrv = 1)
+per_data_1
 
-nrow(pop_data)
-max(pop_data$date_ct)
-min(pop_data$date_ct)
-
-## ------------------------------------------------------------------------
-library(wbstats)
-
-eg_data_1 <- wb(country = c("IN", "AF"), indicator = 'EG.FEC.RNEW.ZS', mrv = 1)
-eg_data_1
-
-eg_data_2 <- wb(country = c("IN", "AF"), indicator = 'EG.FEC.RNEW.ZS', mrv = 2)
-eg_data_2
+per_data_2 <- wb(country = "all", indicator = 'per_lm_ac.cov_pop_tot', mrv = 2)
+per_data_2
 
 
 ## ------------------------------------------------------------------------
