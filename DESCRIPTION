@@ -1,28 +1,32 @@
-Package: wbstats
 Type: Package
+Package: wbstats
 Title: Programmatic Access to Data and Statistics from the World Bank
         API
-Description: Tools for searching and downloading data and statistics from
-  the World Bank Data API (<http://data.worldbank.org/developers/api-overview>)
-  and the World Bank Data Catalog API (<http://data.worldbank.org/developers/data-catalog-api>).
-Version: 0.2
-Date: 2018-01-01
-Authors@R: c(
-  person("Jesse", "Piburn", email = "piburnjo@ornl.gov", role = c("aut", "cre")),
-  person("UT-Battelle, LLC", role = "cph")
-  )
+Version: 1.0.1
+Authors@R: 
+    c(person(given = "Jesse",
+             family = "Piburn",
+             role = c("aut", "cre"),
+             email = "piburnjo@ornl.gov",
+             comment = c(ORCID = "0000-0003-4967-7912")),
+      person(given = "UT-Battelle, LLC",
+             role = "cph"))
 Maintainer: Jesse Piburn <piburnjo@ornl.gov>
-URL: https://github.com/GIST-ORNL/wbstats
+Description: Search and download data from the World Bank Data API.
 License: MIT + file LICENSE
-LazyData: TRUE
-Depends: R (>= 3.1)
-Imports: httr, jsonlite, tidyr
-Suggests: ggplot2, knitr, lubridate (>= 1.5.0)
+URL: https://github.com/nset-ornl/wbstats
+BugReports: https://github.com/nset-ornl/wbstats/issues
+Depends: R (>= 3.2)
+Imports: dplyr, httr, jsonlite, lifecycle, lubridate, readr, stringr,
+        tibble, tidyr
+Suggests: ggplot2, knitr, markdown, rmarkdown
 VignetteBuilder: knitr
-RoxygenNote: 6.0.1
+Encoding: UTF-8
+LazyData: TRUE
+RoxygenNote: 7.0.1
 NeedsCompilation: no
-Packaged: 2018-01-03 17:52:13 UTC; pij
-Author: Jesse Piburn [aut, cre],
+Packaged: 2020-07-26 18:30:44 UTC; pij
+Author: Jesse Piburn [aut, cre] (<https://orcid.org/0000-0003-4967-7912>),
   UT-Battelle, LLC [cph]
 Repository: CRAN
-Date/Publication: 2018-01-03 18:21:36 UTC
+Date/Publication: 2020-07-26 19:00:02 UTC

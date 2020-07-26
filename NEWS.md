@@ -1,3 +1,38 @@
+# wbstats 1.0.1
+
+Release `1.0.1` fixes a handful of minor issues
+
+## Changes:
+* Lowered the per_page limit on API requests to the indicators endpoint in functions
+  `wb_indicators()` and `wb_cache()`. This should result in fewer timeouts.
+
+## Bug fixes:
+* Resolved error when `unit` field is missing in certain `wb_data()` calls
+
+
+# wbstats 1.0.0
+
+The `1.0.0` release represents a complete overhaul of the `wbstats` package to
+hopefully be more consistent and easy to use.
+
+## Changes:
+* Data now returns in a wide format by default with each indicator being its own column
+* Adoption of the "tidyverse" ecosystem.
+* New naming convention, `wb_*()` for all `wbstats` functions. Relatedly,
+* Older functions from previous versions are now deprecated and should produce a warning
+* Support for custom indicator names by passing a named vector to `wb_data()`
+* Includes support for most recent non-empty value queries. Basically quering the most recent
+  `n` values from each location, regardless of the date.
+* `wb_search()` now accepts any `grep()` argument passed through `...` 
+
+
+
+# wbstats 0.2.1.9000
+
+## Changes:
+* add non-exported .wb_url function for debugging purposes
+
+
 # wbstats 0.2.0
 ## Bug fixes:
 * `wbdatacatalog()` now returns all catalog entries instead of first 10
