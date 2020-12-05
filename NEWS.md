@@ -1,3 +1,12 @@
+# wbstats 1.0.3
+* Fixes issues with examples taking too long to run
+
+# wbstats 1.0.2
+
+## Bug fixes:
+* Now precomputes vignettes to better align with CRAN policies regarding internet access
+
+
 # wbstats 1.0.1
 
 Release `1.0.1` fixes a handful of minor issues

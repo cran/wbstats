@@ -58,7 +58,9 @@
 #' that data point is "forecast".
 #'
 #' @export
+#' @importFrom rlang .data
 #' @md
+#'
 #'
 #' @examples
 #'
@@ -67,69 +69,81 @@
 #' \donttest{df_gdp <- wb_data("NY.GDP.MKTP.CD")}
 #'
 #' # Brazilian gdp for all available dates
-#' df_brazil <- wb_data("NY.GDP.MKTP.CD", country = "br")
+#' \donttest{df_brazil <- wb_data("NY.GDP.MKTP.CD", country = "br")}
 #'
 #' # Brazilian gdp for 2006
-#' df_brazil_1 <- wb_data("NY.GDP.MKTP.CD", country = "brazil",
-#'                        start_date = 2006)
+#' \donttest{
+#' df_brazil_1 <- wb_data("NY.GDP.MKTP.CD", country = "brazil", start_date = 2006)
+#' }
 #'
 #' # Brazilian gdp for 2006-2010
+#' \donttest{
 #' df_brazil_2 <- wb_data("NY.GDP.MKTP.CD", country = "BRA",
 #'                        start_date = 2006, end_date = 2010)
+#'}
 #'
 #' # Population, GDP, Unemployment Rate, Birth Rate (per 1000 people)
+#' \donttest{
 #' my_indicators <- c("SP.POP.TOTL",
 #'                    "NY.GDP.MKTP.CD",
 #'                    "SL.UEM.TOTL.ZS",
 #'                    "SP.DYN.CBRT.IN")
+#'}
 #'
 #' \donttest{df <- wb_data(my_indicators)}
 #'
 #' # you pass multiple country ids of different types
 #' # Albania (iso2c), Georgia (iso3c), and Mongolia
+#' \donttest{
 #' my_countries <- c("AL", "Geo", "mongolia")
 #' df <- wb_data(my_indicators, country = my_countries,
 #'               start_date = 2005, end_date = 2007)
+#'}
 #'
 #' # same data as above, but in long format
+#' \donttest{
 #' df_long <- wb_data(my_indicators, country = my_countries,
 #'                    start_date = 2005, end_date = 2007,
 #'                    return_wide = FALSE)
-#'
+#'}
 #'
 #' # regional population totals
 #' # regions correspond to the region column in wb_cachelist$countries
+#' \donttest{
 #' df_region <- wb_data("SP.POP.TOTL", country = "regions_only",
 #'                      start_date = 2010, end_date = 2014)
-#'
+#' }
 #'
 #' # a specific region
+#' \donttest{
 #' df_world <- wb_data("SP.POP.TOTL", country = "world",
 #'                     start_date = 2010, end_date = 2014)
-#'
+#'}
 #'
 #' # if the indicator is part of a named vector the name will be the column name
 #' my_indicators <- c("pop" = "SP.POP.TOTL",
 #'                    "gdp" = "NY.GDP.MKTP.CD",
 #'                    "unemployment_rate" = "SL.UEM.TOTL.ZS",
 #'                    "birth_rate" = "SP.DYN.CBRT.IN")
-#'
+#'\donttest{
 #' df_names <- wb_data(my_indicators, country = "world",
 #'                     start_date = 2010, end_date = 2014)
-#'
+#'}
 #'
 #' # custom names are ignored if returning in long format
+#' \donttest{
 #' df_names_long <- wb_data(my_indicators, country = "world",
 #'                          start_date = 2010, end_date = 2014,
 #'                          return_wide = FALSE)
+#'}
 #'
 #' # same as above but in Bulgarian
 #' # note that not all indicators have translations for all languages
+#' \donttest{
 #' df_names_long_bg <- wb_data(my_indicators, country = "world",
 #'                             start_date = 2010, end_date = 2014,
 #'                             return_wide = FALSE, lang = "bg")
-#'
-#'
+#'}
 wb_data <- function(indicator, country = "countries_only", start_date, end_date,
                     return_wide = TRUE, mrv, mrnev, cache, freq, gapfill = FALSE,
                     date_as_class_date = FALSE, lang) {
@@ -238,6 +252,25 @@ wb_data <- function(indicator, country = "countries_only", start_date, end_date,
 
   d <- format_wb_data(d, end_point = "data")
 
+  if (any(is.na(d$iso3c))) {
+
+    # country names are not replaced with with cached versions b/c
+    # some country names are subnational values where the iso3c and iso2c would
+    # be the same value across mutliple subnational units
+    d <- d %>%
+      dplyr::mutate(
+        iso3c = as.character(.data$iso3c),
+        iso2c = as.character(.data$iso2c),
+        iso3c = dplyr::if_else(is.na(.data$iso3c), .data$iso2c, .data$iso3c)
+      ) %>%
+      dplyr::select(-.data$iso2c) %>%
+      dplyr::left_join(
+        dplyr::select(cache$countries, .data$iso3c, .data$iso2c),
+        by = "iso3c"
+      )
+  }
+
+
   # country_only actually requests 'all' from the API, now remove non-countries
   if (any(tolower(country) %in% c("countries", "countries_only", "countries only"))) {
     country_only_iso3c <- unique_na(cache$countries$iso3c[cache$countries$region != "Aggregates"])
@@ -307,18 +340,6 @@ wb_data <- function(indicator, country = "countries_only", start_date, end_date,
 
   if (date_as_class_date)  d <- format_wb_dates(d)
   else if (!any(grepl("M|Q", d$date, ignore.case = TRUE))) d$date <- as.numeric(d$date)
-
-  # for indicators that are not apart of the World Development Indicators dataset
-  # iso3c values are passed in the iso2c column while the iso3c column is NA
-  # check for those and standardize the returns
-  if (any(is.na(d$iso3c))) {
-
-    d_country_index <- sapply(d$country, function(i) which(cache$countries$country == i))
-    new_iso_values <- cache$countries[d_country_index, c("iso2c", "iso3c")]
-
-    d$iso2c <- new_iso_values$iso2c
-    d$iso3c <- new_iso_values$iso3c
-  }
 
 
   d
